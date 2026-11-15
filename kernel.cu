@@ -2,17 +2,16 @@
 #include "device_launch_parameters.h"
 #include <stdio.h>
 
-#define N 8   // строк
-#define M 8   // столбцов
+#define N 8
+#define M 8
 
-// Один поток = один элемент. r - строка, c - столбец.
 __global__ void k(double* in, double* out)
 {
     int c = blockIdx.x * blockDim.x + threadIdx.x;
     int r = blockIdx.y * blockDim.y + threadIdx.y;
     if (r >= N || c >= M) return;
 
-    out[r * M + c] = in[r * M + c];   // <-- решение задания
+    out[r * M + c] = in[r * M + c];
 }
 
 int main()
