@@ -10,26 +10,19 @@ __global__ void k(double* in, double* out)
 {
     int c = blockIdx.x * blockDim.x + threadIdx.x;
     int r = blockIdx.y * blockDim.y + threadIdx.y;
-    if (r >= N || c >= M) return;
+    if (r >= N || c >= M2) return;
 
-    double v = in[r * M + c];
-    int g = c / 4;
-    int p = c % 4;
+    int g = c / 6;
+    int p = c % 6;
+    int s;
+    if (p == 0) s = 0;
+    if (p == 1) s = 1;
+    if (p == 2) s = 2;
+    if (p == 3) s = 2;
+    if (p == 4) s = 3;
+    if (p == 5) s = 3;
 
-    if (p == 0) {
-        out[r * M2 + g * 6 + 0] = v;
-    }
-    if (p == 1) {
-        out[r * M2 + g * 6 + 1] = v;
-    }
-    if (p == 2) {
-        out[r * M2 + g * 6 + 2] = v;
-        out[r * M2 + g * 6 + 3] = v;
-    }
-    if (p == 3) {
-        out[r * M2 + g * 6 + 4] = v;
-        out[r * M2 + g * 6 + 5] = v;
-    }
+    out[r * M2 + c] = in[r * M + g * 4 + s];
 }
 
 int main()
@@ -41,7 +34,9 @@ int main()
     cudaMalloc(&d_b, sizeof(b));
     cudaMemcpy(d_a, a, sizeof(a), cudaMemcpyHostToDevice);
 
-    k<<<dim3(1, 1), dim3(M, N)>>>(d_a, d_b);
+    dim3 block(16, 16);
+    dim3 grid((M2 + 15) / 16, (N + 15) / 16);
+    k<<<grid, block>>>(d_a, d_b);
     cudaDeviceSynchronize();
 
     cudaMemcpy(b, d_b, sizeof(b), cudaMemcpyDeviceToHost);
