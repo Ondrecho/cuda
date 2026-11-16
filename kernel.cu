@@ -2,40 +2,61 @@
 #include "device_launch_parameters.h"
 #include <stdio.h>
 
-#define N 8      // строк (кратно 4)
-#define M 1024   // столбцов
+#define N 4
+#define M 8
+#define M2 (M / 4 * 6)
 
-// Окно 4x1 = 4 строки в одном столбце, все 4 элемента одинаковые.
-// Окна нумеруются слева направо: 1, 2, 3 ... 1024, потом 1025 ... 2048
-__global__ void k(double* out)
+__global__ void k(double* in, double* out)
 {
-    int c = blockIdx.x * blockDim.x + threadIdx.x;   // столбец
-    int r = blockIdx.y * blockDim.y + threadIdx.y;   // строка
+    int c = blockIdx.x * blockDim.x + threadIdx.x;
+    int r = blockIdx.y * blockDim.y + threadIdx.y;
     if (r >= N || c >= M) return;
 
-    int wr = r / 4;                    // номер строки окон
-    out[r * M + c] = wr * M + c + 1;
+    double v = in[r * M + c];
+    int g = c / 4;
+    int p = c % 4;
+
+    if (p == 0) {
+        out[r * M2 + g * 6 + 0] = v;
+    }
+    if (p == 1) {
+        out[r * M2 + g * 6 + 1] = v;
+    }
+    if (p == 2) {
+        out[r * M2 + g * 6 + 2] = v;
+        out[r * M2 + g * 6 + 3] = v;
+    }
+    if (p == 3) {
+        out[r * M2 + g * 6 + 4] = v;
+        out[r * M2 + g * 6 + 5] = v;
+    }
 }
 
 int main()
 {
-    static double b[N * M];
-    double* d_b;
+    double a[N * M], b[N * M2], *d_a, *d_b;
+    for (int i = 0; i < N * M; i++) a[i] = i + 1;
 
+    cudaMalloc(&d_a, sizeof(a));
     cudaMalloc(&d_b, sizeof(b));
+    cudaMemcpy(d_a, a, sizeof(a), cudaMemcpyHostToDevice);
 
-    dim3 block(16, 16);
-    dim3 grid((M + 15) / 16, (N + 15) / 16);
-    k<<<grid, block>>>(d_b);
+    k<<<dim3(1, 1), dim3(M, N)>>>(d_a, d_b);
     cudaDeviceSynchronize();
 
     cudaMemcpy(b, d_b, sizeof(b), cudaMemcpyDeviceToHost);
+    cudaFree(d_a);
     cudaFree(d_b);
 
-    // Печать как в задании: первые 3 столбца ... последний
+    printf("Input:\n");
     for (int i = 0; i < N; i++) {
-        printf("%6g %6g %6g ... %6g\n",
-               b[i * M + 0], b[i * M + 1], b[i * M + 2], b[i * M + M - 1]);
+        for (int j = 0; j < M; j++) printf("%5g", a[i * M + j]);
+        printf("\n");
+    }
+    printf("\nOutput:\n");
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < M2; j++) printf("%5g", b[i * M2 + j]);
+        printf("\n");
     }
     return 0;
 }
